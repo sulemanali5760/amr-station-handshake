@@ -1,0 +1,13 @@
+{
+  "name": "ROS 2 Jazzy: amr-station-handshake",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "root",
+  "postCreateCommand": "bash -c 'source /opt/ros/jazzy/setup.bash && apt-get update && rosdep update --rosdistro jazzy && rosdep install --from-paths src --ignore-src --rosdistro jazzy -y && colcon build'",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-iot.vscode-ros"]
+    }
+  }
+}
