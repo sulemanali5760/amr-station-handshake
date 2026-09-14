@@ -1,4 +1,5 @@
-"""Station simulator, bridge and one AMR running three missions.
+"""
+Station simulator, bridge and one AMR running three missions.
 
 ros2 launch amr_station_handshake demo.launch.py scenario:=fault_during_transfer
 """
@@ -13,7 +14,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'scenario', default_value='normal',
-            description='normal | never_ready | fault_during_transfer'),
+            description='normal | never_ready | fault_during_transfer | crash_during_transfer'),
         Node(
             package='amr_station_handshake', executable='station_sim',
             arguments=['--scenario', LaunchConfiguration('scenario')],

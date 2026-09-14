@@ -1,4 +1,5 @@
-"""Simulated AMR: drive to the station, dock through the Dock action, drive back.
+"""
+Simulated AMR: drive to the station, dock through the Dock action, drive back.
 
 Driving is a 1-D position ramp published on amr/position. The node exits with
 code 0 after the configured number of missions, or 1 as soon as a handover
@@ -38,7 +39,7 @@ class AmrNode(Node):
         self.exit_code = None
 
         self.create_timer(TICK_S, self._tick)
-        self.get_logger().info(f'{self._amr_id}: mission 1 of {self._missions}, driving to station')
+        self._log_mission_start()
 
     def _tick(self):
         if self._state in ('drive_to_station', 'drive_home'):
@@ -49,7 +50,10 @@ class AmrNode(Node):
     def _drive(self):
         step = self._speed * TICK_S
         delta = self._target - self._position
-        self._position = self._target if abs(delta) <= step else self._position + step * (1 if delta > 0 else -1)
+        if abs(delta) <= step:
+            self._position = self._target
+        else:
+            self._position += step if delta > 0 else -step
         self._position_pub.publish(Float64(data=self._position))
         if self._position != self._target:
             return
@@ -66,9 +70,13 @@ class AmrNode(Node):
             self.get_logger().info(f'{self._amr_id}: all {self._missions} missions complete')
             self.exit_code = 0
             return
-        self.get_logger().info(
-            f'{self._amr_id}: mission {self._completed + 1} of {self._missions}, driving to station')
         self._state, self._target = 'drive_to_station', self._station
+        self._log_mission_start()
+
+    def _log_mission_start(self):
+        self.get_logger().info(
+            f'{self._amr_id}: mission {self._completed + 1} of {self._missions}, '
+            'driving to station')
 
     def _send_dock_goal(self):
         if not self._dock.server_is_ready():
