@@ -3,7 +3,7 @@ string amr_id
 ---
 # Result
 bool success
-# Phase the handshake ended in: succeeded, timed_out, faulted, canceled or connection_error.
+# Phase the handshake ended in: succeeded, timed_out, faulted, canceled or link_error.
 string phase
 # Empty on success, otherwise a human-readable reason.
 string error

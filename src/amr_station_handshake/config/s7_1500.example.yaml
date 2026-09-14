@@ -1,0 +1,16 @@
+# EXAMPLE, not tested against hardware: Siemens S7-1500 with the built-in OPC UA server.
+#
+# Assumes a global data block "DB_Handshake" with the eight tags below, the DB and each tag
+# set to "Accessible from HMI/OPC UA", and the standard SIMATIC server interface. Browse the
+# server with UaExpert first and copy the exact node IDs; they differ when you use a
+# user-defined server interface instead.
+namespace_uri: http://www.siemens.com/simatic-s7-opcua
+node_ids:
+  AmrDockRequest: '"DB_Handshake"."AmrDockRequest"'
+  AmrInPosition: '"DB_Handshake"."AmrInPosition"'
+  AmrHeartbeat: '"DB_Handshake"."AmrHeartbeat"'
+  StationReady: '"DB_Handshake"."StationReady"'
+  TransferActive: '"DB_Handshake"."TransferActive"'
+  TransferDone: '"DB_Handshake"."TransferDone"'
+  Fault: '"DB_Handshake"."Fault"'
+  FaultCode: '"DB_Handshake"."FaultCode"'

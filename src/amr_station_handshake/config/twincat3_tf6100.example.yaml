@@ -1,0 +1,15 @@
+# EXAMPLE, not tested against hardware: Beckhoff TwinCAT 3 with the TF6100 OPC UA server.
+#
+# Assumes a global variable list GVL_Handshake with the eight variables below, published with
+# {attribute 'OPC.UA.DA' := '1'}, on the first PLC project. Browse the server with UaExpert
+# first and copy the namespace URI and node IDs it shows; both depend on the project.
+namespace_uri: urn:BeckhoffAutomation:Ua:PLC1
+node_ids:
+  AmrDockRequest: GVL_Handshake.AmrDockRequest
+  AmrInPosition: GVL_Handshake.AmrInPosition
+  AmrHeartbeat: GVL_Handshake.AmrHeartbeat
+  StationReady: GVL_Handshake.StationReady
+  TransferActive: GVL_Handshake.TransferActive
+  TransferDone: GVL_Handshake.TransferDone
+  Fault: GVL_Handshake.Fault
+  FaultCode: GVL_Handshake.FaultCode
