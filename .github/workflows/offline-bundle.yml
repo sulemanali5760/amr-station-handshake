@@ -1,0 +1,47 @@
+name: Offline image
+
+# Builds a Docker image with ROS 2 Jazzy and every dependency of this repo baked in, proves
+# the workspace builds and passes its tests inside it with networking switched off, and
+# uploads the image as a tarball for machines without a fast internet connection.
+on:
+  workflow_dispatch:
+
+jobs:
+  offline-image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image with all dependencies
+        run: |
+          cat > offline.Dockerfile <<'EOF'
+          FROM ros:jazzy-ros-base
+          RUN apt-get update \
+              && apt-get install -y --no-install-recommends git curl python3-pip \
+              && pip install --break-system-packages --ignore-installed asyncua==2.0.1
+          COPY src /tmp/src
+          RUN rosdep update --rosdistro jazzy \
+              && rosdep install --from-paths /tmp/src --ignore-src --rosdistro jazzy -y \
+              && rm -rf /tmp/src /var/lib/apt/lists/*
+          RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc
+          EOF
+          docker build -f offline.Dockerfile -t amr-handshake:offline .
+
+      - name: Build and test inside the image with no network
+        run: |
+          docker run --rm --network none -v "$PWD":/ws -w /ws amr-handshake:offline bash -c '
+            source /opt/ros/jazzy/setup.bash &&
+            colcon build &&
+            source install/setup.bash &&
+            colcon test --return-code-on-test-failure &&
+            colcon test-result --verbose'
+
+      - name: Export image
+        run: docker save amr-handshake:offline | gzip -1 > amr-handshake-image.tar.gz && ls -lh amr-handshake-image.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amr-handshake-image
+          path: amr-handshake-image.tar.gz
+          compression-level: 0
+          retention-days: 7
