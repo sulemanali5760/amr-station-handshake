@@ -166,9 +166,11 @@ class TestHandover(unittest.TestCase):
         probe = StationProbe(4866)
         try:
             request, heartbeat = probe.node('AmrDockRequest'), probe.node('AmrHeartbeat')
-            for count in range(20):                  # one second of a live AMR side
+            # Like the bridge: count from 1 (the station starts at 0, so 0 would not count as a
+            # beat) and beat a few cycles before raising the request.
+            for count in range(1, 25):               # about one second of a live AMR side
                 heartbeat.write_value(count, ua.VariantType.Int16)
-                if count == 0:
+                if count == 5:
                     request.write_value(True, ua.VariantType.Boolean)
                 time.sleep(0.05)
             self.assertTrue(probe.read('StationReady'))
