@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-pip
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+          # asyncua is not packaged for rosdep. --ignore-installed keeps pip from
+          # trying to upgrade apt-owned packages it cannot uninstall.
+          pip install --break-system-packages --ignore-installed asyncua==2.0.1
+
+      - name: Build
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --event-handlers console_direct+
+
+      - name: Test
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test --event-handlers console_direct+ --return-code-on-test-failure
+          colcon test-result --verbose
