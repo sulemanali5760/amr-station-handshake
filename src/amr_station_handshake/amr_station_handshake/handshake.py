@@ -1,9 +1,13 @@
-"""AMR-to-station handover handshake as a pure state machine.
+"""
+AMR-to-station handover handshake as a pure state machine.
 
 No ROS, no OPC UA, no clock. The caller reads the station's signals, calls
 step() once per cycle with the current time, and writes the returned AMR
 signals back. That is the same read-inputs / execute / write-outputs cycle a
 PLC task runs, so this logic ports 1:1 to a function block.
+
+The heartbeat that lets the station notice a dead AMR side is not decided
+here: it carries no decision, so the transport (station_bridge) writes it.
 """
 
 from dataclasses import dataclass
@@ -20,6 +24,10 @@ class StationSignals:
     fault: bool = False
     fault_code: int = 0
 
+    @property
+    def idle(self) -> bool:
+        return not (self.ready or self.transfer_active or self.transfer_done or self.fault)
+
 
 @dataclass(frozen=True)
 class AmrSignals:
@@ -33,6 +41,7 @@ RELEASED = AmrSignals(dock_request=False, in_position=False)
 
 
 class Phase(Enum):
+    RESET = 'reset'          # request bits low, waiting for an idle, fault-free station
     REQUEST = 'request'      # DockRequest set, waiting for StationReady
     DOCK = 'dock'            # InPosition set, waiting for the transfer to start
     TRANSFER = 'transfer'    # waiting for TransferDone
@@ -50,6 +59,7 @@ TERMINAL = {Phase.SUCCEEDED, Phase.TIMED_OUT, Phase.FAULTED, Phase.CANCELED}
 class Timeouts:
     """Seconds allowed in each phase, measured from entering that phase."""
 
+    reset: float = 3.0
     request: float = 5.0
     dock: float = 3.0
     transfer: float = 15.0
@@ -60,7 +70,7 @@ class Handshake:
 
     def __init__(self, timeouts: Timeouts = Timeouts(), now: float = 0.0):
         self._timeouts = timeouts
-        self.phase = Phase.REQUEST
+        self.phase = Phase.RESET
         self.error = ''
         self._entered = now
 
@@ -76,7 +86,17 @@ class Handshake:
         if self.done:
             return RELEASED
 
-        if station.fault:
+        if self.phase is Phase.RESET:
+            # A fault left over from an earlier handover is expected here: dropping the
+            # request acknowledges it, so wait for it to clear instead of failing on it.
+            if station.idle:
+                self._enter(Phase.REQUEST, now)
+            elif now - self._entered > self._limit():
+                code = f', fault code {station.fault_code}' if station.fault else ''
+                self._end(
+                    Phase.TIMED_OUT,
+                    f'station not idle after {self._limit():.1f} s{code}')
+        elif station.fault:
             self._end(Phase.FAULTED, f'station fault, code {station.fault_code}')
         elif self.phase in (Phase.DOCK, Phase.TRANSFER) and not station.ready:
             self._end(Phase.FAULTED, 'station withdrew Ready during the handover')
