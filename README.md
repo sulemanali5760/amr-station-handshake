@@ -5,6 +5,25 @@
 A mobile robot hands over a load at a PLC-controlled conveyor station.
 *Ein fahrerloses Transportfahrzeug übergibt eine Last an eine SPS-gesteuerte Förderstation.*
 
+VDA 5050 standardises fleet controller to vehicle and expressly leaves out
+"interfaces to peripheral equipment". The signal handshake between vehicle and
+conveyor is therefore invented again in every project. This repository writes
+it down once and makes it testable:
+
+| | |
+|---|---|
+| [**Specification**](docs/SPEC.md) | Eight signals and ten rules (R1 to R10) for the station, each with a time limit |
+| [**`handover-check`**](tools/handover-check) | `pip install handover-check`. Plays the vehicle side over OPC UA against a station PLC, also the ways a vehicle fails, and reports rule by rule. No ROS, no robot; Windows or Linux |
+| **ROS 2 reference** (below) | The vehicle side as a `Dock` action server with the handshake state machine, a simulated AMR and a simulated station |
+
+```bash
+pip install handover-check
+handover-check station &                                  # reference station, no PLC needed
+handover-check run opc.tcp://127.0.0.1:4860/station/      # ten rules, pass or fail
+```
+
+## The ROS 2 reference
+
 The robot side is ROS 2, the station side is a PLC, and between them sits the
 part that goes wrong on real sites: a signal handshake with a timeout on every
 step and a heartbeat the station watches.
@@ -47,7 +66,7 @@ mkdir -p ~/ws/src && cd ~/ws/src
 git clone https://github.com/sulemanali5760/amr-station-handshake.git
 cd ~/ws
 rosdep install --from-paths src --ignore-src -y
-pip install --break-system-packages asyncua
+pip install --break-system-packages asyncua==2.0.1
 colcon build && source install/setup.bash
 
 ros2 launch amr_station_handshake demo.launch.py
@@ -68,6 +87,7 @@ ros2 launch amr_station_handshake demo.launch.py scenario:=crash_during_transfer
 | `fault_during_transfer` | faults with code 1 halfway | `faulted` |
 | `crash_during_transfer` | process exits halfway | `link_error` |
 | any, robot side dies | watchdog faults with code 2 after 1 s | station stops on its own |
+| any, robot leaves its position mid-transfer | station faults with code 3 | station stops on its own |
 
 Watch the robot and the handover from a second terminal:
 

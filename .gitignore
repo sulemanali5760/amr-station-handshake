@@ -3,3 +3,8 @@ install/
 log/
 __pycache__/
 *.pyc
+.venv/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+dist/

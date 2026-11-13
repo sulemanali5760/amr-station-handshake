@@ -19,6 +19,7 @@ CYCLE_S = 0.05
 
 FAULT_CONVEYOR_BLOCKED = 1
 FAULT_HEARTBEAT_LOST = 2
+FAULT_AMR_LEFT = 3
 
 
 async def run(args):
@@ -75,7 +76,9 @@ async def run(args):
             elif phase == 'ready' and docked:
                 phase, due = 'transferring', now + args.transfer_time
             elif phase == 'transferring':
-                if now >= due - halfway and args.scenario == 'fault_during_transfer':
+                if not docked:
+                    phase, code = 'fault', FAULT_AMR_LEFT   # docs/SPEC.md, rule R10
+                elif now >= due - halfway and args.scenario == 'fault_during_transfer':
                     phase, code = 'fault', FAULT_CONVEYOR_BLOCKED
                 elif now >= due - halfway and args.scenario == 'crash_during_transfer':
                     print('station_sim: crashing mid-transfer', flush=True)

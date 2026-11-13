@@ -47,7 +47,7 @@ list maps directly onto a PLC data block or a TwinCAT `GVL`.
 | `TransferActive` | BOOL | station → AMR | Conveyor is moving the load |
 | `TransferDone` | BOOL | station → AMR | Load is on the station |
 | `Fault` | BOOL | station → AMR | Station fault; latched, cleared when the request drops (acknowledge) |
-| `FaultCode` | INT | station → AMR | 0 = none, 1 = conveyor blocked, 2 = AMR heartbeat lost |
+| `FaultCode` | INT | station → AMR | 0 = none, 1 = conveyor blocked, 2 = AMR heartbeat lost, 3 = AMR left its position during the transfer |
 
 ### Where the signals live: the signal map
 

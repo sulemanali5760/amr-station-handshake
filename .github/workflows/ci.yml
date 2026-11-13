@@ -37,6 +37,27 @@ jobs:
           colcon test --event-handlers console_direct+ --return-code-on-test-failure
           colcon test-result --verbose
 
+  handover-check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: tools/handover-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r requirements-dev.txt -e .
+      - name: Tester against the reference station, conforming and with each defect
+        run: python -m pytest -v
+      - name: Known vulnerabilities in dependencies
+        run: python -m pip_audit -r requirements-dev.txt
+
   codespaces-image:
     runs-on: ubuntu-24.04
     steps:

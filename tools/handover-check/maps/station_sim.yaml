@@ -1,0 +1,14 @@
+# Where the handshake signals live on the bundled station simulator.
+# Copy this file and change the node IDs to connect the bridge to a real PLC.
+namespace_uri: urn:amr-station-handshake:station
+node_ids:
+  # written by the bridge
+  AmrDockRequest: Station.AmrDockRequest    # BOOL
+  AmrInPosition: Station.AmrInPosition      # BOOL
+  AmrHeartbeat: Station.AmrHeartbeat        # INT, incremented every bridge cycle
+  # written by the station
+  StationReady: Station.StationReady        # BOOL
+  TransferActive: Station.TransferActive    # BOOL
+  TransferDone: Station.TransferDone        # BOOL
+  Fault: Station.Fault                      # BOOL
+  FaultCode: Station.FaultCode              # INT
