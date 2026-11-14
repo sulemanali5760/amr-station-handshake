@@ -23,6 +23,8 @@ handover-check station &                                  # reference station, n
 handover-check run opc.tcp://127.0.0.1:4860/station/      # ten rules, pass or fail
 ```
 
+![The handover as a timing diagram: eight signals, and the time limit of each step](docs/handover_timing.png)
+
 ## The ROS 2 reference
 
 The robot side is ROS 2, the station side is a PLC, and between them sits the
