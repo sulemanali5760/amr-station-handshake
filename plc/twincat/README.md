@@ -62,8 +62,11 @@ Every fault stops the conveyor and stays latched until the vehicle drops its req
 - **Compiles** with 0 errors, tests included, on TwinCAT 3.1.4026.25 with TcUnit
   1.3.1 (headless build, 14 Nov 2026). A deliberately broken copy fails the same
   build, so the files really are compiled.
-- **Not yet run.** The TcUnit suite and `handover-check` against this block both
-  need a TwinCAT runtime; no result is claimed until one is recorded here.
+- **Unit tests run**: all 7 pass on the local TwinCAT 3.1.4026.25 runtime
+  (14 Nov 2026). With the R10 branch removed on purpose, exactly the R10 test
+  fails, so the suite does catch a broken block.
+- **Not yet run**: `handover-check` against this block over TF6100 (needs the
+  TF6100 OPC UA server licence).
 - **Not a safety function.** Guarding of the transfer opening and sensing of the
   docked vehicle belong to the safety controller.
 

@@ -14,7 +14,7 @@ it down once and makes it testable:
 |---|---|
 | [**Specification**](docs/SPEC.md) | Eight signals and ten rules (R1 to R10) for the station, each with a time limit |
 | [**`handover-check`**](tools/handover-check) | `pip install handover-check`. Plays the vehicle side over OPC UA against a station PLC, also the ways a vehicle fails, and reports rule by rule. No ROS, no robot; Windows or Linux |
-| [**`FB_StationHandshake`**](plc/twincat) | The station side for TwinCAT 3 in Structured Text: rules R1 to R10, heartbeat watchdog, conveyor time-out, the signal GVL and a TcUnit suite. Compiles on 3.1.4026; not yet run on a runtime |
+| [**`FB_StationHandshake`**](plc/twincat) | The station side for TwinCAT 3 in Structured Text: rules R1 to R10, heartbeat watchdog, conveyor time-out, the signal GVL and a TcUnit suite. 7 unit tests pass on a TwinCAT 3.1.4026 runtime |
 | **ROS 2 reference** (below) | The vehicle side as a `Dock` action server with the handshake state machine, a simulated AMR and a simulated station |
 
 ```bash
