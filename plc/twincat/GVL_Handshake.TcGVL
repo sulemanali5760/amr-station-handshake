@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <GVL Name="GVL_Handshake" Id="{2c8e5f17-4a9b-4d3e-8f60-7b1a3c9d5e82}">
+    <Declaration><![CDATA[// The eight handshake signals of docs/SPEC.md, published on the TF6100 OPC UA server.
+// The names match tools/handover-check/maps/twincat3_tf6100.example.yaml.
+{attribute 'qualified_only'}
+{attribute 'OPC.UA.DA' := '1'}
+VAR_GLOBAL
+    // written by the vehicle side
+    AmrDockRequest : BOOL;
+    AmrInPosition  : BOOL;
+    AmrHeartbeat   : INT;
+    // written by the station (FB_StationHandshake)
+    StationReady   : BOOL;
+    TransferActive : BOOL;
+    TransferDone   : BOOL;
+    Fault          : BOOL;
+    FaultCode      : INT;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

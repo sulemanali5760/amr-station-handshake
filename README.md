@@ -14,6 +14,7 @@ it down once and makes it testable:
 |---|---|
 | [**Specification**](docs/SPEC.md) | Eight signals and ten rules (R1 to R10) for the station, each with a time limit |
 | [**`handover-check`**](tools/handover-check) | `pip install handover-check`. Plays the vehicle side over OPC UA against a station PLC, also the ways a vehicle fails, and reports rule by rule. No ROS, no robot; Windows or Linux |
+| [**`FB_StationHandshake`**](plc/twincat) | The station side for TwinCAT 3 in Structured Text: rules R1 to R10, heartbeat watchdog, conveyor time-out, the signal GVL and a TcUnit suite. Compiles on 3.1.4026; not yet run on a runtime |
 | **ROS 2 reference** (below) | The vehicle side as a `Dock` action server with the handshake state machine, a simulated AMR and a simulated station |
 
 ```bash
@@ -115,9 +116,9 @@ ros2 run amr_station_handshake station_bridge --ros-args \
 | [`twincat3_tf6100.example.yaml`](src/amr_station_handshake/config/twincat3_tf6100.example.yaml) | Beckhoff TwinCAT 3 with TF6100, `GVL_Handshake` |
 
 The PLC program has to implement the station side of the handshake, including
-the heartbeat watchdog: see the signal table in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#signals). The example maps have
-not been tested against hardware.
+the heartbeat watchdog. For TwinCAT 3 that is [`FB_StationHandshake`](plc/twincat)
+with `GVL_Handshake`, whose names match the TwinCAT example map. The example
+maps have not been tested against hardware.
 
 ## Tests
 
@@ -136,6 +137,8 @@ It also builds the Codespaces container image.
 ## Layout
 
 ```
+plc/twincat/                  FB_StationHandshake, GVL_Handshake, TcUnit suite
+tools/handover-check/         the conformance tester (PyPI: handover-check)
 src/
   amr_handshake_interfaces/   Dock.action
   amr_station_handshake/

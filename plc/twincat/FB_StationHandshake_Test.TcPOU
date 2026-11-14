@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_StationHandshake_Test" Id="{8b2e4d61-7a3c-4f15-9e08-5c6d1a2b3f47}" SpecialFunc="None">
+    <Declaration><![CDATA[// TcUnit tests for FB_StationHandshake, one test per rule group of docs/SPEC.md.
+//
+// Within one PLC cycle a TON does not advance, so the sequence tests call the block
+// several times in the same cycle, changing the heartbeat each call. The two time-out
+// tests (R8 and conveyor blocked) run over real cycles with shortened limits.
+FUNCTION_BLOCK FB_StationHandshake_Test EXTENDS TcUnit.FB_TestSuite
+VAR
+    fbIdle     : FB_StationHandshake;
+    fbReady    : FB_StationHandshake;
+    fbFull     : FB_StationHandshake;
+    fbWithdraw : FB_StationHandshake;
+    fbUndock   : FB_StationHandshake;
+    fbBeatLost : FB_StationHandshake;
+    fbBlocked  : FB_StationHandshake;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[R1_NoRequest_AllOutputsOff();
+R2_R3_Request_ReadyButNothingMoves();
+R4_R5_R6_FullHandoverTwice();
+R7_WithdrawBeforeDocking_BackToIdle();
+R10_R9_VehicleLeavesDuringTransfer_FaultThenAcknowledge();
+R8_HeartbeatStops_Fault();
+ConveyorBlocked_Fault();]]></ST>
+    </Implementation>
+    <Method Name="R1_NoRequest_AllOutputsOff" Id="{0d7e3b42-91a5-4c68-b2f3-6a1e8c5d4b90}">
+      <Declaration><![CDATA[METHOD PRIVATE R1_NoRequest_AllOutputsOff]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R1_NoRequest_AllOutputsOff');
+fbIdle(bAmrDockRequest := FALSE, bAmrInPosition := FALSE, nAmrHeartbeat := 1, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertFalse(Condition := fbIdle.bStationReady OR fbIdle.bTransferActive OR fbIdle.bTransferDone OR fbIdle.bFault,
+            Message := 'all outputs must be off without a request');
+AssertEquals_INT(Expected := 0, Actual := fbIdle.nFaultCode, Message := 'no fault code without a request');
+AssertFalse(Condition := fbIdle.bConveyorRun, Message := 'conveyor must stand');
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="R2_R3_Request_ReadyButNothingMoves" Id="{5a2c8e17-3d6b-4f90-a1e4-7b9c0d2e6f35}">
+      <Declaration><![CDATA[METHOD PRIVATE R2_R3_Request_ReadyButNothingMoves]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R2_R3_Request_ReadyButNothingMoves');
+fbReady(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 1, bStationFree := TRUE, bLoadArrived := FALSE);
+fbReady(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 2, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertTrue(Condition := fbReady.bStationReady, Message := 'R2: StationReady after the request');
+AssertFalse(Condition := fbReady.bTransferActive, Message := 'R3: no transfer before the vehicle is in position');
+AssertFalse(Condition := fbReady.bConveyorRun, Message := 'R3: conveyor must stand before docking');
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="R4_R5_R6_FullHandoverTwice" Id="{c4f1a9d3-2e7b-4b56-8d0a-9e3f5c7b1a28}">
+      <Declaration><![CDATA[METHOD PRIVATE R4_R5_R6_FullHandoverTwice
+VAR
+    n : INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R4_R5_R6_FullHandoverTwice');
+FOR n := 1 TO 2 DO
+    fbFull(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 10 * n + 1, bStationFree := TRUE, bLoadArrived := FALSE);
+    fbFull(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 10 * n + 2, bStationFree := TRUE, bLoadArrived := FALSE);
+    AssertTrue(Condition := fbFull.bStationReady, Message := 'R6: Ready again for the next handover');
+    fbFull(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := 10 * n + 3, bStationFree := TRUE, bLoadArrived := FALSE);
+    AssertTrue(Condition := fbFull.bTransferActive AND fbFull.bConveyorRun, Message := 'R4: transfer starts when the vehicle is in position');
+    fbFull(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := 10 * n + 4, bStationFree := FALSE, bLoadArrived := TRUE);
+    AssertTrue(Condition := fbFull.bTransferDone, Message := 'R4: TransferDone when the load arrived');
+    AssertFalse(Condition := fbFull.bTransferActive OR fbFull.bConveyorRun, Message := 'R4: TransferActive off when TransferDone is on');
+    fbFull(bAmrDockRequest := FALSE, bAmrInPosition := FALSE, nAmrHeartbeat := 10 * n + 5, bStationFree := TRUE, bLoadArrived := FALSE);
+    AssertFalse(Condition := fbFull.bStationReady OR fbFull.bTransferDone OR fbFull.bFault, Message := 'R5: all outputs off after release');
+END_FOR
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="R7_WithdrawBeforeDocking_BackToIdle" Id="{e8b3d5f2-6a1c-4e97-b2d4-0f8a7c3e5d61}">
+      <Declaration><![CDATA[METHOD PRIVATE R7_WithdrawBeforeDocking_BackToIdle]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R7_WithdrawBeforeDocking_BackToIdle');
+fbWithdraw(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 1, bStationFree := TRUE, bLoadArrived := FALSE);
+fbWithdraw(bAmrDockRequest := FALSE, bAmrInPosition := FALSE, nAmrHeartbeat := 2, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertTrue(Condition := fbWithdraw.eState = E_HandoverState.eIdle, Message := 'R7: back to idle');
+AssertFalse(Condition := fbWithdraw.bStationReady OR fbWithdraw.bConveyorRun, Message := 'R7: no transfer after a withdrawn request');
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="R10_R9_VehicleLeavesDuringTransfer_FaultThenAcknowledge" Id="{1f6c9a84-b3e2-4d07-a5f1-8c2d4e6b9a73}">
+      <Declaration><![CDATA[METHOD PRIVATE R10_R9_VehicleLeavesDuringTransfer_FaultThenAcknowledge]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R10_R9_VehicleLeavesDuringTransfer_FaultThenAcknowledge');
+fbUndock(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 1, bStationFree := TRUE, bLoadArrived := FALSE);
+fbUndock(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 2, bStationFree := TRUE, bLoadArrived := FALSE);
+fbUndock(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := 3, bStationFree := TRUE, bLoadArrived := FALSE);
+fbUndock(bAmrDockRequest := TRUE, bAmrInPosition := FALSE, nAmrHeartbeat := 4, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertFalse(Condition := fbUndock.bConveyorRun OR fbUndock.bTransferActive, Message := 'R10: conveyor stops when the vehicle leaves');
+AssertTrue(Condition := fbUndock.bFault, Message := 'R10: Fault set');
+AssertEquals_INT(Expected := 3, Actual := fbUndock.nFaultCode, Message := 'R10: fault code 3, vehicle left');
+fbUndock(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := 5, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertTrue(Condition := fbUndock.bFault AND NOT fbUndock.bConveyorRun, Message := 'fault stays latched while the request is on');
+fbUndock(bAmrDockRequest := FALSE, bAmrInPosition := FALSE, nAmrHeartbeat := 6, bStationFree := TRUE, bLoadArrived := FALSE);
+AssertFalse(Condition := fbUndock.bFault, Message := 'R9: dropping the request acknowledges the fault');
+AssertEquals_INT(Expected := 0, Actual := fbUndock.nFaultCode, Message := 'R9: fault code cleared');
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="R8_HeartbeatStops_Fault" Id="{9d4a2c71-e5b8-4f36-a0c9-3b7e1d5f8a24}">
+      <Declaration><![CDATA[METHOD PRIVATE R8_HeartbeatStops_Fault
+VAR_INST
+    fbWatchdog : TON;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('R8_HeartbeatStops_Fault');
+// The heartbeat stays at 7 from the first call on: the block must fault after 100 ms.
+fbBeatLost(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := 7, bStationFree := TRUE,
+           bLoadArrived := FALSE, tHeartbeatTimeout := T#100MS);
+fbWatchdog(IN := TRUE, PT := T#2S);
+IF fbBeatLost.bFault THEN
+    AssertEquals_INT(Expected := 2, Actual := fbBeatLost.nFaultCode, Message := 'R8: fault code 2, heartbeat lost');
+    AssertFalse(Condition := fbBeatLost.bConveyorRun, Message := 'R8: conveyor stops');
+    TEST_FINISHED();
+ELSIF fbWatchdog.Q THEN
+    AssertTrue(Condition := FALSE, Message := 'R8: no fault within 2 s of a stopped heartbeat');
+    TEST_FINISHED();
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ConveyorBlocked_Fault" Id="{4e7b1d93-c2a6-4805-9f3e-6d8a0b2c5e19}">
+      <Declaration><![CDATA[METHOD PRIVATE ConveyorBlocked_Fault
+VAR_INST
+    nBeat      : INT;
+    fbWatchdog : TON;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('ConveyorBlocked_Fault');
+// Docked, heartbeat alive, but the load never arrives: fault 1 after 100 ms.
+nBeat := nBeat + 1;
+fbBlocked(bAmrDockRequest := TRUE, bAmrInPosition := TRUE, nAmrHeartbeat := nBeat, bStationFree := TRUE,
+          bLoadArrived := FALSE, tTransferTimeout := T#100MS);
+fbWatchdog(IN := TRUE, PT := T#2S);
+IF fbBlocked.bFault THEN
+    AssertEquals_INT(Expected := 1, Actual := fbBlocked.nFaultCode, Message := 'fault code 1, conveyor blocked');
+    AssertFalse(Condition := fbBlocked.bConveyorRun, Message := 'conveyor stops on a blocked transfer');
+    TEST_FINISHED();
+ELSIF fbWatchdog.Q THEN
+    AssertTrue(Condition := FALSE, Message := 'no fault within 2 s of a blocked transfer');
+    TEST_FINISHED();
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

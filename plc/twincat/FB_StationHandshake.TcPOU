@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_StationHandshake" Id="{3f9a7c21-5b4d-4e6a-8c2f-1d7e9b0a6c34}" SpecialFunc="None">
+    <Declaration><![CDATA[// Station side of the AMR handover handshake, rules R1-R10 of docs/SPEC.md.
+//
+// Call it once per cycle. Wire the three vehicle signals from wherever they arrive
+// (OPC UA variables, a fieldbus coupler, an optical I/O link), the two station
+// sensors, and drive the conveyor from bConveyorRun. The five station outputs go
+// back to the vehicle side unchanged.
+//
+// Not a safety function: guarding of the transfer opening and the docked-vehicle
+// sensing belong to the safety controller (SPEC, "What this specification does not do").
+FUNCTION_BLOCK FB_StationHandshake
+VAR_INPUT
+    bAmrDockRequest   : BOOL;              // vehicle wants to hand over a load
+    bAmrInPosition    : BOOL;              // vehicle docked, transfer may start
+    nAmrHeartbeat     : INT;               // must change while the vehicle side is alive
+    bStationFree      : BOOL;              // station can take a load (empty, conveyor healthy)
+    bLoadArrived      : BOOL;              // end-of-conveyor sensor
+    tHeartbeatTimeout : TIME := T#1S;      // R8: SPEC allows at most 2 s
+    tTransferTimeout  : TIME := T#15S;     // no arrival in this time -> conveyor blocked
+END_VAR
+VAR_OUTPUT
+    bStationReady   : BOOL;
+    bTransferActive : BOOL;
+    bTransferDone   : BOOL;
+    bFault          : BOOL;
+    nFaultCode      : INT;                 // 0 none, 1 conveyor blocked, 2 heartbeat lost, 3 vehicle left
+    bConveyorRun    : BOOL;                // command to the conveyor drive
+    eState          : E_HandoverState;
+END_VAR
+VAR
+    nLastHeartbeat : INT;
+    fbHeartbeat    : TON;                  // runs while the heartbeat does not change
+    fbTransfer     : TON;                  // runs while the conveyor transfers
+END_VAR
+VAR CONSTANT
+    cFaultConveyorBlocked : INT := 1;
+    cFaultHeartbeatLost   : INT := 2;
+    cFaultAmrLeft         : INT := 3;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbHeartbeat(IN := bAmrDockRequest AND nAmrHeartbeat = nLastHeartbeat, PT := tHeartbeatTimeout);
+nLastHeartbeat := nAmrHeartbeat;
+fbTransfer(IN := eState = E_HandoverState.eTransferring, PT := tTransferTimeout);
+
+IF NOT bAmrDockRequest THEN
+    // R5, R7: the vehicle released -> idle. R9: dropping the request also acknowledges a fault.
+    eState := E_HandoverState.eIdle;
+    nFaultCode := 0;
+ELSIF eState <> E_HandoverState.eFault AND fbHeartbeat.Q THEN
+    eState := E_HandoverState.eFault;                    // R8
+    nFaultCode := cFaultHeartbeatLost;
+ELSE
+    CASE eState OF
+    E_HandoverState.eIdle:
+        IF bStationFree THEN
+            eState := E_HandoverState.eReady;            // R2
+        END_IF
+    E_HandoverState.eReady:
+        IF bAmrInPosition THEN
+            eState := E_HandoverState.eTransferring;     // R3: only after docking. R4: start
+        END_IF
+    E_HandoverState.eTransferring:
+        IF NOT bAmrInPosition THEN
+            eState := E_HandoverState.eFault;            // R10
+            nFaultCode := cFaultAmrLeft;
+        ELSIF bLoadArrived THEN
+            eState := E_HandoverState.eDone;             // R4: done
+        ELSIF fbTransfer.Q THEN
+            eState := E_HandoverState.eFault;
+            nFaultCode := cFaultConveyorBlocked;
+        END_IF
+    END_CASE
+END_IF
+
+bStationReady   := eState = E_HandoverState.eReady OR eState = E_HandoverState.eTransferring
+                   OR eState = E_HandoverState.eDone;
+bTransferActive := eState = E_HandoverState.eTransferring;
+bTransferDone   := eState = E_HandoverState.eDone;
+bFault          := eState = E_HandoverState.eFault;
+bConveyorRun    := bTransferActive;]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
