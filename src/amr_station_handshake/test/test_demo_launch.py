@@ -47,7 +47,9 @@ def generate_test_description():
     return launch.LaunchDescription([
         station(4861), bridge(4861), amr,
         station(4862, '--scenario', 'fault_during_transfer'), bridge(4862, 'faulty'),
-        station(4863, '--scenario', 'never_ready'),
+        # A long watchdog, so the 1 s request timeout always comes first: with 1 s on both
+        # sides a slow CI runner sometimes reported a heartbeat fault instead.
+        station(4863, '--scenario', 'never_ready', '--watchdog-ms', '5000'),
         # timeout.request is an int on purpose: integer seconds must be accepted.
         bridge(4863, 'silent', **{'timeout.request': 1}),
         station(4864, '--transfer-time', '20'), bridge(4864, 'cancel'),
