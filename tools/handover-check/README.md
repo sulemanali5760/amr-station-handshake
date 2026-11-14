@@ -81,8 +81,14 @@ handover-check run opc.tcp://192.168.0.10:4840 --map my_station.yaml --station-i
 | `--report record.md` | Markdown report for the commissioning record |
 | `--json` | machine-readable output |
 | `--strict` | exit code 2 if a rule could not be tested |
+| `--security-policy Basic256Sha256` `--security-mode SignAndEncrypt` | secure channel |
+| `--cert-dir DIR` `--server-cert plc.der` | client certificate folder (created on first use); the PLC's certificate, so its identity is checked |
+| `--user NAME` | log in; the password comes from the `OPCUA_PASSWORD` environment variable, never the command line |
 
 Exit code 0 = no rule failed, 1 = at least one rule failed.
+
+A PLC with security on rejects the tool's new certificate (`pki/client_cert.der`) until it is
+added to the PLC's trusted certificates; that is the PLC protecting itself.
 
 ## It moves your conveyor
 
@@ -112,12 +118,14 @@ eight built-in defects, and expects the tester to report exactly the broken rule
 
 A transfer that is too short to judge R8 or R10 is reported as "not testable", not as a pass.
 
+A second server accepts only `Basic256Sha256` + `SignAndEncrypt` with a user login: the tool
+reaches it with certificate and login and is refused without them and with a wrong password.
+
 ## Limits
 
 - **Not tested against a real PLC.** Only against the bundled reference station. The S7-1500 and
   TwinCAT maps are examples; node ids depend on the project.
-- **No OPC UA security.** The tool connects anonymously without encryption. A PLC that demands
-  certificates or a login cannot be tested yet.
+- **OPC UA security is tested against asyncua only**, not yet against a Siemens or Beckhoff server.
 - **Polling.** Signals are read every 25 ms by default, so measured times are accurate to a few
   tens of milliseconds plus the network. It cannot see events shorter than that.
 - **The rules are this project's own** ([SPEC](../../docs/SPEC.md)), shaped after SEMI E84. They

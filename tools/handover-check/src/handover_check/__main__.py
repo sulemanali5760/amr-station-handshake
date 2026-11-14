@@ -7,6 +7,7 @@ import urllib.parse
 
 from handover_check import __version__
 from handover_check.checks import FAIL, PASS, SIM_MAP, SKIP, Limits, as_dicts, load_signal_map, run_checks
+from handover_check.security import MODES, PASSWORD_ENV, POLICIES, from_args
 from handover_check.station import DEFECTS, StationLogic, serve
 
 MARK = {PASS: "[PASS]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
@@ -38,7 +39,7 @@ def _run(a) -> int:
         return 64
     signal_map = load_signal_map(a.map) if a.map else SIM_MAP
     limits = Limits(a.t_ready, a.t_start, a.t_transfer, a.t_release, a.t_watchdog, a.t_stop, a.t_hold)
-    results = asyncio.run(run_checks(a.endpoint, signal_map, limits, a.only))
+    results = asyncio.run(run_checks(a.endpoint, signal_map, limits, a.only, security=from_args(a)))
     print(json.dumps(as_dicts(results), indent=2) if a.json else render(results, a.endpoint))
     if a.report:
         with open(a.report, "w", encoding="utf-8") as f:
@@ -76,6 +77,14 @@ def main(argv=None) -> int:
                                 ("watchdog", 2.0, "heartbeat stopped -> fault"), ("stop", 1.0, "vehicle left -> conveyor stopped"),
                                 ("hold", 1.0, "how long 'must stay off' is observed")):
         r.add_argument(f"--t-{name}", type=float, default=default, metavar="S", help=f"limit in seconds: {text} (default {default:g})")
+    sec = r.add_argument_group("security (a production PLC usually requires it)")
+    sec.add_argument("--security-policy", choices=POLICIES, default="None")
+    sec.add_argument("--security-mode", choices=MODES, default="SignAndEncrypt")
+    sec.add_argument("--cert-dir", default="pki", metavar="DIR",
+                     help="client certificate folder; a self-signed one is created on first use")
+    sec.add_argument("--server-cert", default=None, metavar="FILE",
+                     help="the PLC's certificate (.der); without it the server identity is not checked")
+    sec.add_argument("--user", default=None, help=f"user name for login; the password is read from {PASSWORD_ENV}")
     r.add_argument("--json", action="store_true", help="machine-readable output")
     r.add_argument("--report", metavar="FILE.md", help="also write a Markdown report (for the commissioning record)")
     r.add_argument("--strict", action="store_true", help="exit code 2 when a rule could not be tested")

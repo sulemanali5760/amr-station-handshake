@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handover-check"
-version = "0.1.0"
+version = "0.2.0"
 description = "Test a conveyor station's AMR/AGV load-handover handshake over OPC UA before the robot arrives: plays the vehicle side, also the ways a vehicle fails, and reports rule by rule."
 readme = "README.md"
 requires-python = ">=3.11"

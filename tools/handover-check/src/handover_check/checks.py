@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass
 import yaml
 from asyncua import Client, ua
 
+from handover_check.security import Security, apply
+
 SIGNALS = ("AmrDockRequest", "AmrInPosition", "AmrHeartbeat",
            "StationReady", "TransferActive", "TransferDone", "Fault", "FaultCode")
 SIM_MAP = {"namespace_uri": "urn:amr-station-handshake:station",
@@ -71,8 +73,10 @@ def load_signal_map(path) -> dict:
 class Rig:
     """The vehicle side: two request bits, a heartbeat, and eyes on the station's five outputs."""
 
-    def __init__(self, endpoint: str, signal_map: dict, period: float = 0.05, timeout: float = 4.0):
+    def __init__(self, endpoint: str, signal_map: dict, period: float = 0.05, timeout: float = 4.0,
+                 security: Security | None = None):
         self.endpoint, self.signal_map, self.period = endpoint, signal_map, period
+        self.security = security or Security()
         self._client = Client(endpoint, timeout=timeout)
         self._beating = True
         self._beat = 0
@@ -80,6 +84,7 @@ class Rig:
         self._n = {}
 
     async def __aenter__(self) -> "Rig":
+        await apply(self._client, self.security)
         await self._client.connect()
         try:
             ns = await self._client.get_namespace_index(self.signal_map["namespace_uri"])
@@ -310,12 +315,13 @@ RULES = {
 
 
 async def run_checks(endpoint: str, signal_map: dict = SIM_MAP, limits: Limits = Limits(),
-                     only: list[str] | None = None, period: float = 0.05) -> list[Result]:
+                     only: list[str] | None = None, period: float = 0.05,
+                     security: Security | None = None) -> list[Result]:
     """Run the rules in order against the station. Before each rule the station is brought back to idle;
     a rule that cannot start from idle is reported as SKIP with the reason."""
     results = []
     stuck = False
-    async with Rig(endpoint, signal_map, period) as rig:
+    async with Rig(endpoint, signal_map, period, security=security) as rig:
         for rule, (title, check) in RULES.items():
             if only and rule not in only:
                 continue
